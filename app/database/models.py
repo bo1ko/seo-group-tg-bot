@@ -11,6 +11,13 @@ class User(Base):
     __tablename__ = 'user'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    tg_id: Mapped[int] = mapped_column(Integer)
+    tg_id: Mapped[int] = mapped_column(Integer, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+
+class Channel(Base):
+    __tablename__ = 'channels'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat: Mapped[str] = mapped_column(String, unique=True)
+    status: Mapped[bool] = mapped_column(Boolean, default=False)
