@@ -21,3 +21,9 @@ class Channel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     chat: Mapped[str] = mapped_column(String, unique=True)
     status: Mapped[bool] = mapped_column(Boolean, default=False)
+
+class Keyword(Base):
+    __tablename__ = 'key_words'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    word: Mapped[str] = mapped_column(String, unique=True)

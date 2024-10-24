@@ -1,16 +1,16 @@
 import random
 import time
 import os
-
+import asyncio
 from openpyxl import load_workbook
 from dotenv import load_dotenv
 
 
 load_dotenv()
 
-def random_sleep():
+async def random_sleep():
     sleep_time = random.uniform(30, 40)
-    time.sleep(sleep_time)
+    await asyncio.sleep(sleep_time)
 
 
 def load_excel_data():

@@ -1,7 +1,7 @@
 from aiogram.fsm.context import FSMContext
 from pyrogram import Client
 from pyrogram.errors import SessionPasswordNeeded, FloodWait, PhoneCodeInvalid, PhoneCodeExpired
-
+import app.keyboards.admin_keyboard as kb
 
 class TelegramLogin:
     def __init__(self, api_id, api_hash):
@@ -12,7 +12,7 @@ class TelegramLogin:
 
     async def pyrogram_login(self, message, state: FSMContext):
         if self.app is None:
-            self.app = Client("my_account", api_id=self.api_id, api_hash=self.api_hash)
+            self.app = Client("sessions/my_account", api_id=self.api_id, api_hash=self.api_hash)
 
         if not self.app.is_connected:
             await self.app.connect()
@@ -40,14 +40,14 @@ class TelegramLogin:
 
         try:
             await self.app.sign_in(phone_number, phone_code_hash, code_text)
-            await message.answer("Авторизація успішна!")
+            await message.answer("Авторизація успішна!", reply_markup=kb.admin_menu)
         except SessionPasswordNeeded:
-            await message.answer("Потрібен пароль для двоетапної авторизації. Введи пароль.")
+            await message.answer("Потрібен пароль для двоетапної авторизації. Введи пароль.", reply_markup=kb.admin_menu)
         except PhoneCodeInvalid:
-            await message.answer("Неправильний код підтвердження. Спробуй ще раз.")
+            await message.answer("Неправильний код підтвердження. Спробуй ще раз.", reply_markup=kb.admin_menu)
         except PhoneCodeExpired:
-            await message.answer("Код підтвердження закінчився. Спробуй отримати новий код.")
+            await message.answer("Код підтвердження закінчився. Спробуй отримати новий код.", reply_markup=kb.admin_menu)
         except FloodWait as e:
-            await message.answer(f"Тимчасове блокування. Будь ласка, зачекай {e.value} секунд.")
+            await message.answer(f"Тимчасове блокування. Будь ласка, зачекай {e.value} секунд.", reply_markup=kb.admin_menu)
         except Exception as e:
-            await message.answer(f"Помилка авторизації: {str(e)}")
+            await message.answer(f"Помилка авторизації: {str(e)}", reply_markup=kb.admin_menu)
