@@ -1,4 +1,5 @@
-from sqlalchemy import select, delete
+from pyrogram.raw import objects
+from sqlalchemy import select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.engine import engine
@@ -18,6 +19,18 @@ async def orm_add_user(tg_id: int, name: str, session: AsyncSession):
         await session.commit()
         return obj
 
+async def orm_add_user_by_name(name: str, session: AsyncSession):
+    async with session:
+        obj = User(name=name)
+        session.add(obj)
+        await session.commit()
+        return obj
+
+async def orm_remove_user(name: str, session: AsyncSession):
+    async with session:
+        query = delete(User).where(User.name == name)
+        await session.execute(query)
+        await session.commit()
 
 async def orm_get_user(tg_id: int, session: AsyncSession):
     async with session:
@@ -38,6 +51,34 @@ async def orm_is_admin(tg_id: int, session: AsyncSession):
         result = await session.execute(query)
         user = result.scalar()
         return user.is_admin if user else False
+
+async def add_admin(tg_id: int, session: AsyncSession):
+    try:
+        async with session:
+            query = update(User).where(User.tg_id == tg_id).values(is_admin=True)
+            await session.execute(query)
+            await session.commit()
+            return True
+    except:
+        return False
+
+async def remove_admin(tg_id: int, session: AsyncSession):
+    try:
+        async with session:
+            query = update(User).where(User.tg_id == tg_id).values(is_admin=False)
+            await session.execute(query)
+            await session.commit()
+            return True
+    except:
+        return False
+
+async def get_all_admins(session: AsyncSession):
+    async with session:
+        query = select(User).where(User.is_admin == True)
+        result = await session.execute(query)
+        admins = result.scalars().all()
+        return admins
+
 
 
 async def orm_add_channel(chat: str, status: bool, session: AsyncSession):

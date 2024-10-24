@@ -43,6 +43,10 @@ class KeywordsState(StatesGroup):
     add_keywords = State()
     remove_keywords = State()
 
+class UserState(StatesGroup):
+    add_user = State()
+    remove_user = State()
+
 
 # admin /admin
 @router.message(or_f(Command('admin'), ('Відкрити адмін меню' == F.text), ('Назад' == F.text)))
@@ -308,3 +312,58 @@ async def remove_keywords_first_step(message: types.Message, state: FSMContext, 
 
     await message.answer('Ключові слова успішно видалені', reply_markup=kb.keywords)
     await state.clear()
+
+# Users
+@router.message(F.text == 'Користувачі')
+async def users_manage(message: types.Message, session: AsyncSession):
+    await message.answer('Керування користувачами', reply_markup=kb.users_manage)
+
+# Users list
+@router.message(F.text == 'Список користувачів')
+async def users_manage(message: types.Message, session: AsyncSession):
+    users = await rq.orm_get_users(session)
+    users_str = 'Список користувачів\n\n'
+
+    for user in users:
+        users_str += f'{user.name}\n\n'
+
+    await message.answer(users_str, reply_markup=kb.users_manage)
+
+# Add user
+@router.message(F.text == 'Добавити користувача')
+async def add_user(message: types.Message, session: AsyncSession, state: FSMContext):
+    await message.answer('Введіть юзернейм користувача\n\n❌ - @bobr\n✔ - bobr')
+    await state.set_state(UserState.add_user)
+
+@router.message(UserState.add_user)
+async def add_user_first(message: types.Message, session: AsyncSession, state: FSMContext):
+    await state.update_data(user=message.text)
+    data = await state.get_data()
+    username = data.get('user')
+
+    result = await rq.orm_add_user_by_name(username, session)
+
+    if result:
+        await message.answer('Користувач добавлений успішно', reply_markup=kb.users_manage)
+    else:
+        await message.answer('Користувача не вдалося додати. Спробуйте знову!')
+
+    await state.clear()
+
+@router.message(F.text == 'Видалити користувача')
+async def remove_user(message: types.Message, session: AsyncSession, state: FSMContext):
+    await message.answer('Введіть юзернейм користувача\n\n❌ - @bobr\n✔ - bobr')
+    await state.set_state(UserState.remove_user)
+
+@router.message(UserState.remove_user)
+async def remove_user_first(message: types.Message, session: AsyncSession, state: FSMContext):
+    await state.update_data(user=message.text)
+    data = await state.get_data()
+    username = data.get('user')
+
+    result = await rq.orm_remove_user(username, session)
+
+    if result:
+        await message.answer('Користувач видалений успішно', reply_markup=kb.users_manage)
+    else:
+        await message.answer('Користувача не вдалося видалити. Спробуйте знову!')

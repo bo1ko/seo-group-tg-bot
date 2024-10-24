@@ -3,6 +3,7 @@ from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 admin_menu = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Аккаунт'), KeyboardButton(text='Ключові слова')],
     [KeyboardButton(text='Добавити чати'), KeyboardButton(text='Перевірка чатів')],
+    # [KeyboardButton(text='Користувачі')],
     [KeyboardButton(text='Сховати адмін меню')]
 ], resize_keyboard=True, input_field_placeholder='Виберіть пункт меню...')
 
@@ -45,6 +46,13 @@ stop_chat_checker = ReplyKeyboardMarkup(keyboard=[
 
 start_chat_checker = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Запустити перевірку чатів')],
+    [KeyboardButton(text='Назад')],
+], resize_keyboard=True, input_field_placeholder='Виберіть пункт меню...')
+
+users_manage = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text='Список користувачів'), KeyboardButton(text='Список адміністраторів')],
+    [KeyboardButton(text='Добавити користувача'), KeyboardButton(text='Додати адміністратора')],
+    [KeyboardButton(text='Видалити користувача'), KeyboardButton(text='Видалити адміністратора')],
     [KeyboardButton(text='Назад')],
 ], resize_keyboard=True, input_field_placeholder='Виберіть пункт меню...')
 
