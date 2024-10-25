@@ -1,5 +1,6 @@
-from sqlalchemy import DateTime, String, func, Integer, Boolean
+from sqlalchemy import DateTime, String, func, Integer, Boolean, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from datetime import datetime
 
 
 class Base(DeclarativeBase):
@@ -22,8 +23,21 @@ class Channel(Base):
     chat: Mapped[str] = mapped_column(String, unique=True)
     status: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    account_id: Mapped[int] = mapped_column(Integer, ForeignKey('accounts.id', ondelete="CASCADE"))
+
 class Keyword(Base):
     __tablename__ = 'key_words'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     word: Mapped[str] = mapped_column(String, unique=True)
+
+class Account(Base):
+    __tablename__ = 'accounts'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    phone_number: Mapped[str] = mapped_column(String, unique=True)
+    api_id: Mapped[str] = mapped_column(String)
+    api_hash: Mapped[str] = mapped_column(String)
+    flood_wait: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    active_type: Mapped[str] = mapped_column(String, nullable=True)

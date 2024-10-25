@@ -1,4 +1,5 @@
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 admin_menu = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Аккаунт'), KeyboardButton(text='Ключові слова')],
@@ -56,3 +57,15 @@ users_manage = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Назад')],
 ], resize_keyboard=True, input_field_placeholder='Виберіть пункт меню...')
 
+back = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text='Назад')],
+], resize_keyboard=True, input_field_placeholder='Виберіть пункт меню...')
+
+# INLINE KEYBOARDS
+def get_callback_btns(*, btns: dict[str, str], sizes: tuple[int] = (2,)):
+    keyboard = InlineKeyboardBuilder()
+
+    for text, data in btns.items():
+        keyboard.add(InlineKeyboardButton(text=text, callback_data=data))
+
+    return keyboard.adjust(*sizes).as_markup()

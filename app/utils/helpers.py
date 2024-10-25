@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 async def random_sleep():
-    sleep_time = random.uniform(30, 40)
+    sleep_time = random.uniform(50, 60)
     await asyncio.sleep(sleep_time)
 
 
