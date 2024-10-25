@@ -17,7 +17,6 @@ class CheckMessage:
         self.keywords = None
         self.message = message
         self.users = None
-        self.user_ids = None
         self.is_client_started = False
 
     async def start(self):
@@ -32,8 +31,8 @@ class CheckMessage:
             print('Stop')
             self.is_client_started = False
 
-    async def send_message_to_all_users(self, text: str):
-        for user_id in self.user_ids:
+    async def send_message_to_all_users(self, text: str, user_ids: list):
+        for user_id in user_ids:
             await self.message.bot.send_message(user_id, text)
 
     def contains_keywords(self, text: str) -> bool:
@@ -46,10 +45,11 @@ class CheckMessage:
         return False
 
     async def check_chat(self, session: AsyncSession):
+        self.users = await orm_get_users(session)
+        user_ids = [user.tg_id for user in self.users]
+        
         try:
             await self.start()
-            self.users = await orm_get_users(session)
-            self.user_ids = [user.tg_id for user in self.users]
             keywords_objs = await orm_get_keywords(session)
             self.keywords = [i.word for i in keywords_objs]
 
@@ -70,10 +70,10 @@ class CheckMessage:
                                     f"Текст: {chat_message.text}"
                                 )
 
-                                await self.send_message_to_all_users(info_message)
+                                await self.send_message_to_all_users(info_message, user_ids)
                         await self.client.read_chat_history(dialog.chat.id)
                 await asyncio.sleep(5)
         except Exception as e:
-            await self.send_message_to_all_users(f"{e}")
+            await self.send_message_to_all_users(f"{e}", user_ids)
         finally:
             await self.stop()

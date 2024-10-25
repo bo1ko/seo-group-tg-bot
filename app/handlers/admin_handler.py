@@ -59,6 +59,7 @@ async def cmd_admin(message: types.Message, state: FSMContext):
 @router.message(F.text == 'Сховати адмін меню')
 async def hide_admin_menu(message: types.Message):
     await message.answer('Адмін меню приховане', reply_markup=kb.hide_admin_menu)
+    print(auth_in_progress, add_chats_in_progress, check_chats_in_progress)
 
 
 # account
@@ -236,8 +237,8 @@ async def start_check_chats(message: types.Message, session: AsyncSession):
         else:
             await message.answer('Перевірка чатів запущена', reply_markup=kb.admin_menu)
             check_message = CheckMessage(message)
-            check_chats_task = asyncio.create_task(check_message.check_chat(session))
-        check_chats_in_progress = True
+            check_chats_task = asyncio.create_task(check_message.check_chat(session))            
+            check_chats_in_progress = True
 
 # Stop chat cheker
 @router.message(F.text == 'Зупинити перевірку чатів')

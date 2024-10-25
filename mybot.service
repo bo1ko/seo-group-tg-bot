@@ -1,0 +1,12 @@
+[Unit]
+Description=My TG Bot
+After=multi-uesr.target
+
+[Service]
+Type=simple
+ExecStart=/home/ubuntu/seo-group-tg-bot/.venv/bin/python /home/ubuntu/seo-group-tg-bot/run.py
+WorkingDirectory=/home/ubuntu/seo-group-tg-bot
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
