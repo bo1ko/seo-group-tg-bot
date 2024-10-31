@@ -6,3 +6,4 @@ app.log
 sessions/*
 excel/*
 database.db
+.vscode

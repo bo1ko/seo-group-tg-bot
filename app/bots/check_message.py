@@ -5,7 +5,7 @@ from aiogram.types import Message
 from dotenv import load_dotenv
 from pyrogram import Client
 
-from app.database.orm_query import orm_get_users, orm_get_keywords, orm_get_accounts, orm_set_account_active, orm_update_active_type
+from app.database.orm_query import orm_get_users, orm_get_accounts, orm_set_account_active, orm_update_active_type
 
 load_dotenv()
 

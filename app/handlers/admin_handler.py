@@ -359,11 +359,11 @@ async def keywords_menu(message: types.Message):
 # Keyword list
 @router.message(F.text == 'Список ключових слів')
 async def keyword_list(message: types.Message):
-    orm_keywords = await rq.orm_get_keywords()
+    # orm_keywords = await rq.orm_get_keywords()
     keywords_str = ''
 
-    for keyword in orm_keywords:
-        keywords_str += f'{keyword.word}, '
+    # for keyword in orm_keywords:
+        # keywords_str += f'{keyword.word}, '
 
     await message.answer(f'Список ключових слів\n\n{keywords_str}')
 
@@ -467,3 +467,9 @@ async def remove_user_first(message: types.Message, state: FSMContext):
         await message.answer('Користувач видалений успішно', reply_markup=kb.users_manage)
     else:
         await message.answer('Користувача не вдалося видалити. Спробуйте знову!')
+
+
+########## Subscribe ##########
+@router.message(or_f(Command('user_subscribe'), F.text.lower('Налаштування підписок')))
+async def cmd_user_subscribe(message: types.Message):
+    ...

@@ -2,7 +2,7 @@ from sqlalchemy import select, delete, update
 
 from app.database.engine import engine, session_maker
 from app.database.models import Base
-from app.database.models import Channel, User, Keyword, Account
+from app.database.models import Channel, User, Account
 
 
 async def create_tables():
@@ -119,38 +119,6 @@ async def orm_remove_channels():
             query = delete(Channel)
             await session.execute(query)
             await session.commit()
-
-
-async def orm_add_keywords(words: list[str]):
-    async with session_maker() as session:
-        async with session.begin():
-            existing_keywords = await session.execute(
-                select(Keyword.word).where(Keyword.word.in_(words))
-            )
-            existing_words = {row[0] for row in existing_keywords}
-            new_words = [word for word in words if word not in existing_words]
-            objects = [Keyword(word=word) for word in new_words]
-            session.add_all(objects)
-            await session.commit()
-
-            return objects
-
-
-async def orm_get_keywords():
-    async with session_maker() as session:
-        async with session.begin():
-            query = select(Keyword)
-            result = await session.execute(query)
-            return result.scalars().all()
-
-
-async def orm_remove_keywords(keywords: list[str]):
-    async with session_maker() as session:
-        async with session.begin():
-            query = delete(Keyword).where(Keyword.word.in_(keywords))
-            await session.execute(query)
-            await session.commit()
-
 
 async def orm_add_account(phone_number: str, api_id: str, api_hash: str):
     try:
