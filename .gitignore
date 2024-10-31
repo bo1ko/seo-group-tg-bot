@@ -3,6 +3,6 @@
 .idea
 __pycache__
 app.log
-sessions
+sessions/*
+excel/*
 database.db
-excel/
