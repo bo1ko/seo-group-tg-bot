@@ -1,6 +1,12 @@
-from aiogram.types import KeyboardButton
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
+
+main_placeholder = 'Виберіть пункт меню...'
+
+USER_MENU = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text='Ключові слова')]
+], resize_keyboard=True, input_field_placeholder=main_placeholder)
 
 def get_keyboard(
     *btns: str,

@@ -1,8 +1,10 @@
+from datetime import datetime
+
 from sqlalchemy import select, delete, update
 
 from app.database.engine import engine, session_maker
 from app.database.models import Base
-from app.database.models import Channel, User, Account
+from app.database.models import Channel, User, Account, Subscription
 
 
 async def create_tables():
@@ -120,11 +122,14 @@ async def orm_remove_channels():
             await session.execute(query)
             await session.commit()
 
+
 async def orm_add_account(phone_number: str, api_id: str, api_hash: str):
     try:
         async with session_maker() as session:
             async with session.begin():
-                obj = Account(phone_number=phone_number, api_id=api_id, api_hash=api_hash)
+                obj = Account(
+                    phone_number=phone_number, api_id=api_id, api_hash=api_hash
+                )
                 session.add(obj)
 
                 await session.commit()
@@ -164,6 +169,7 @@ async def orm_is_account_active(phone_number: str):
             result = await session.execute(query)
             return result.scalar().is_active
 
+
 async def orm_set_account_active(phone_number: str, status: bool):
     async with session_maker() as session:
         async with session.begin():
@@ -176,6 +182,7 @@ async def orm_set_account_active(phone_number: str, status: bool):
                 return True
             return False
 
+
 async def orm_check_active_type(phone_number: str):
     async with session_maker() as session:
         async with session.begin():
@@ -183,11 +190,102 @@ async def orm_check_active_type(phone_number: str):
             result = await session.execute(query)
             return result.scalar().active_type
 
+
 async def orm_update_active_type(phone_number: str, active_type: str):
     try:
         async with session_maker() as session:
             async with session.begin():
-                query = update(Account).where(Account.phone_number == phone_number).values(active_type=active_type)
+                query = (
+                    update(Account)
+                    .where(Account.phone_number == phone_number)
+                    .values(active_type=active_type)
+                )
+                await session.execute(query)
+                await session.commit()
+                return True
+    except:
+        return False
+
+
+########## Subscribe ##########
+async def orm_get_subscribers():
+    async with session_maker() as session:
+        async with session.begin():
+            query = select(Subscription)
+            result = await session.execute(query)
+
+            return result.scalars().all()
+
+
+async def orm_get_subscriber(tg_id: int):
+    async with session_maker() as session:
+        async with session.begin():
+            query = select(Subscription).where(Subscription.user_id == tg_id)
+            result = await session.execute(query)
+            return result.scalar()
+
+
+async def orm_add_subscriber(tg_id: int, start_date: datetime, end_date: datetime):
+    async with session_maker() as session:
+        async with session.begin():
+            obj = Subscription(
+                user_id=tg_id,
+                is_subscribed=True,
+                start_subscription_date=start_date,
+                end_subscription_date=end_date,
+            )
+            session.add(obj)
+
+            await session.commit()
+            return obj
+
+
+async def orm_update_subscriber(tg_id: int, start_date: str, end_date: str):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                query = (
+                    update(Subscription)
+                    .where(Subscription.user_id == tg_id)
+                    .values(
+                        user_id=tg_id,
+                        is_subscribed=True,
+                        start_subscription_date=start_date,
+                        end_subscription_date=end_date,
+                    )
+                )
+
+                await session.execute(query)
+                await session.commit()
+                return True
+    except:
+        return False
+
+
+async def orm_disable_all_subscriptions(tg_id: int):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                query = (
+                    update(Subscription)
+                    .where(Subscription.user_id == tg_id)
+                    .values(is_subscribed=False)
+                )
+                await session.execute(query)
+                await session.commit()
+                return True
+    except:
+        return False
+
+async def orm_disable_active_subscribers(tg_id: int):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                query = (
+                    update(Subscription)
+                    .where(Subscription.user_id == tg_id, Subscription.is_subscribed == True)
+                    .values(is_subscribed=False)
+                )
                 await session.execute(query)
                 await session.commit()
                 return True

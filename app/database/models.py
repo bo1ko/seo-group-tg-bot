@@ -23,7 +23,7 @@ class Subscription(Base):
     __tablename__ = 'subscriptions'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('users.id'))
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('users.tg_id'))
     is_subscribed: Mapped[bool] = mapped_column(Boolean, default=False)
     start_subscription_date: Mapped[datetime] = mapped_column(DateTime)
     end_subscription_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
