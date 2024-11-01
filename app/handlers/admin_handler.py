@@ -2,7 +2,6 @@ import asyncio
 import os
 
 from datetime import datetime, timedelta
-from turtledemo.penrose import start
 
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command, or_f
@@ -43,11 +42,6 @@ class Auth(StatesGroup):
 
 class ExcelFile(StatesGroup):
     file_name = State()
-
-
-class KeywordsState(StatesGroup):
-    add_keywords = State()
-    remove_keywords = State()
 
 
 class UserState(StatesGroup):
@@ -412,71 +406,6 @@ async def stop_chats_adding(message: types.Message):
             "Немає активного процесу перевірки чатів.", reply_markup=kb.admin_menu
         )
 
-
-# Add keywords
-@router.message(F.text == "Ключові слова")
-async def keywords_menu(message: types.Message):
-    await message.answer('Меню "Ключові слова"', reply_markup=kb.keywords)
-
-
-# Keyword list
-@router.message(F.text == "Список ключових слів")
-async def keyword_list(message: types.Message):
-    # orm_keywords = await rq.orm_get_keywords()
-    keywords_str = ""
-
-    # for keyword in orm_keywords:
-    # keywords_str += f'{keyword.word}, '
-
-    await message.answer(f"Список ключових слів\n\n{keywords_str}")
-
-
-# Add keywords
-@router.message(F.text == "Додати ключові слова")
-async def add_keywords(message: types.Message, state: FSMContext):
-    await message.answer("Введіть ключові слова через кому\nПриклад: Кіт, собака, бобр")
-    await state.set_state(KeywordsState.add_keywords)
-
-
-@router.message(KeywordsState.add_keywords)
-async def add_keywords_first_step(message: types.Message, state: FSMContext):
-    await state.update_data(keywords=message.text)
-    data = await state.get_data()
-    keywords_list = [i.strip() for i in data.get("keywords").split(",")]
-    result = await rq.orm_add_keywords(keywords_list)
-
-    if result:
-        await message.answer(
-            "Ключові слова успішно добавлені", reply_markup=kb.keywords
-        )
-    else:
-        await message.answer(
-            "Таке ключове слово вже є в базі", reply_markup=kb.keywords
-        )
-
-    await state.clear()
-
-
-# Remove keywords
-@router.message(F.text == "Видалити ключові слова")
-async def remove_keywords(message: types.Message, state: FSMContext):
-    await message.answer(
-        "Щоб видалити ключові слова, введіть їх через кому\nПриклад: Кіт, собака, бобр"
-    )
-    await state.set_state(KeywordsState.remove_keywords)
-
-
-@router.message(KeywordsState.remove_keywords)
-async def remove_keywords_first_step(message: types.Message, state: FSMContext):
-    await state.update_data(keywords=message.text)
-    data = await state.get_data()
-    keywords_list = data.get("keywords").replace(" ", "").split(",")
-    await rq.orm_remove_keywords(keywords_list)
-
-    await message.answer("Ключові слова успішно видалені", reply_markup=kb.keywords)
-    await state.clear()
-
-
 # Users
 @router.message(F.text == "Користувачі")
 async def users_manage(message: types.Message):
@@ -647,7 +576,7 @@ async def subscription_period(
 ):
     period = int(callback.data.split("_")[-1])
     data = await state.get_data()
-    tg_id = int(data.get("tg_id"))
+    tg_id = data.get("tg_id")
 
     await callback.answer()
 
@@ -686,7 +615,7 @@ async def subscription_period(
         await bot.send_message(
             chat_id=tg_id,
             text=f'Вам була видана підписка на {period} {"дня" if period == 3 else "днів"}',
-            reply_markup=kb_user.USER_MENU,
+            reply_markup=kb_user.user_menu,
         )
     else:
         await callback.message.answer(f"{result}")
@@ -704,7 +633,7 @@ async def remove_subscriber_first(message: types.Message, state: FSMContext):
     data = await state.get_data()
 
     try:
-        tg_id = int(data.get("tg_id"))
+        tg_id = data.get("tg_id")
 
         user_data = await rq.orm_get_user(tg_id)
 

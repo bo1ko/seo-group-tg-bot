@@ -12,7 +12,7 @@ async def create_tables():
         await conn.run_sync(Base.metadata.create_all)
 
 
-async def orm_add_user(tg_id: int, name: str):
+async def orm_add_user(tg_id: str, name: str):
     async with session_maker() as session:
         async with session.begin():
             obj = User(tg_id=tg_id, name=name)
@@ -38,12 +38,15 @@ async def orm_remove_user(name: str):
             await session.commit()
 
 
-async def orm_get_user(tg_id: int):
-    async with session_maker() as session:
-        async with session.begin():
-            query = select(User).where(User.tg_id == tg_id)
-            result = await session.execute(query)
-            return result.scalar()
+async def orm_get_user(tg_id: str):
+        async with session_maker() as session:
+            async with session.begin():
+                try:
+                    query = select(User).where(User.tg_id == tg_id)
+                    result = await session.execute(query)
+                    return result.scalar()
+                except:
+                    return None
 
 
 async def orm_get_users():
@@ -54,16 +57,19 @@ async def orm_get_users():
             return result.scalars().all()
 
 
-async def orm_is_admin(tg_id: int):
-    async with session_maker() as session:
-        async with session.begin():
-            query = select(User).where(User.tg_id == tg_id)
-            result = await session.execute(query)
-            user = result.scalar()
-            return user.is_admin if user else False
+async def orm_is_admin(tg_id: str):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                query = select(User).where(User.tg_id == tg_id)
+                result = await session.execute(query)
+                user = result.scalar()
+                return user.is_admin
+    except:
+        return False
 
 
-async def add_admin(tg_id: int):
+async def add_admin(tg_id: str):
     try:
         async with session_maker() as session:
             async with session.begin():
@@ -75,7 +81,7 @@ async def add_admin(tg_id: int):
         return False
 
 
-async def remove_admin(tg_id: int):
+async def remove_admin(tg_id: str):
     try:
         async with session_maker() as session:
             async with session.begin():
@@ -217,7 +223,7 @@ async def orm_get_subscribers():
             return result.scalars().all()
 
 
-async def orm_get_subscriber(tg_id: int):
+async def orm_get_subscriber(tg_id: str):
     async with session_maker() as session:
         async with session.begin():
             query = select(Subscription).where(Subscription.user_id == tg_id)
@@ -225,7 +231,7 @@ async def orm_get_subscriber(tg_id: int):
             return result.scalar()
 
 
-async def orm_add_subscriber(tg_id: int, start_date: datetime, end_date: datetime):
+async def orm_add_subscriber(tg_id: str, start_date: datetime, end_date: datetime):
     async with session_maker() as session:
         async with session.begin():
             obj = Subscription(
@@ -240,7 +246,7 @@ async def orm_add_subscriber(tg_id: int, start_date: datetime, end_date: datetim
             return obj
 
 
-async def orm_update_subscriber(tg_id: int, start_date: str, end_date: str):
+async def orm_update_subscriber(tg_id: str, start_date: str, end_date: str):
     try:
         async with session_maker() as session:
             async with session.begin():
@@ -262,7 +268,7 @@ async def orm_update_subscriber(tg_id: int, start_date: str, end_date: str):
         return False
 
 
-async def orm_disable_all_subscriptions(tg_id: int):
+async def orm_disable_all_subscriptions(tg_id: str):
     try:
         async with session_maker() as session:
             async with session.begin():
@@ -277,7 +283,7 @@ async def orm_disable_all_subscriptions(tg_id: int):
     except:
         return False
 
-async def orm_disable_active_subscribers(tg_id: int):
+async def orm_disable_active_subscribers(tg_id: str):
     try:
         async with session_maker() as session:
             async with session.begin():
@@ -291,3 +297,73 @@ async def orm_disable_active_subscribers(tg_id: int):
                 return True
     except:
         return False
+
+
+async def orm_is_sub_user(tg_id: str):
+    async with session_maker() as session:
+        async with session.begin():
+            query = select(Subscription).where(Subscription.user_id == tg_id, Subscription.is_subscribed == True)
+            result = await session.execute(query)
+            sub_user = result.scalar()
+
+            if sub_user:
+                return sub_user.is_subscribed
+            else:
+                return False
+
+
+### ORM KEYWORDS
+async def orm_add_keywords(tg_id: str, keywords_list: list):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                result = await session.execute(select(User).where(User.tg_id == tg_id))
+                user = result.scalar()
+
+                if user:
+                    if user.key_list is None:
+                        user.key_list = keywords_list
+                    else:
+                        user.key_list.extend(keywords_list)
+
+                    await session.commit()
+                    return True
+                else:
+                    return False
+    except Exception as e:
+        print(e)
+        return False
+
+async def orm_get_keywords(tg_id: str):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                query = select(User).where(User.tg_id == tg_id)
+                result = await session.execute(query)
+                user = result.scalar()
+
+                return user.key_list
+    except:
+        return False
+
+
+async def orm_remove_keywords(tg_id: str, keywords_to_remove: list):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                query = select(User).where(User.tg_id == tg_id)
+                result = await session.execute(query)
+                user = result.scalar()
+
+                if user and user.key_list:
+                    user.key_list = [keyword for keyword in user.key_list if keyword not in keywords_to_remove]
+
+                    await session.commit()
+                    return True
+                else:
+                    return False
+    except Exception as e:
+        print(e)
+        return False
+
+

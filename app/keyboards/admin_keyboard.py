@@ -25,13 +25,6 @@ account_manage = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Назад')],
 ], resize_keyboard=True, input_field_placeholder='Виберіть пункт меню...')
 
-keywords = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='Список ключових слів')],
-    [KeyboardButton(text='Додати ключові слова')],
-    [KeyboardButton(text='Видалити ключові слова')],
-    [KeyboardButton(text='Назад')],
-], resize_keyboard=True, input_field_placeholder='Виберіть пункт меню...')
-
 stop_add_chats = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Зупинити додавання чатів')],
     [KeyboardButton(text='Назад')],
