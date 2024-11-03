@@ -1,7 +1,8 @@
 import random
-import time
+import glob
 import os
 import asyncio
+
 from openpyxl import load_workbook
 from dotenv import load_dotenv
 
@@ -20,5 +21,7 @@ def load_excel_data():
 
     for row in sheet.iter_rows(values_only=True):
         data.append(row)
+        
+    count = len(data) - 1
 
-    return data
+    return data, count

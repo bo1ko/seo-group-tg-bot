@@ -40,6 +40,9 @@ class Channel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     chat: Mapped[str] = mapped_column(String, unique=True)
     status: Mapped[bool] = mapped_column(Boolean, default=False)
+    country: Mapped[str] = mapped_column(String, nullable=True)
+    city: Mapped[str] = mapped_column(String, nullable=True)
+    is_general: Mapped[bool] = mapped_column(Boolean, default=False)
 
     account_id: Mapped[int] = mapped_column(Integer, ForeignKey('accounts.id', ondelete="CASCADE"))
 

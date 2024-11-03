@@ -1,21 +1,28 @@
+import os
+
 import app.keyboards.user_keyboard as kb
 
-from aiogram import Router, types, F
+from aiogram import Router, types, F, Bot
 from aiogram.filters import CommandStart, Command, or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+from dotenv import load_dotenv
 
 import app.database.orm_query as rq
-from app.common.bot_cmds_list import private
 
 from app.filters.check_sub_user import IsSubUser
+from app.filters.check_chat_type import ChatTypeFilter
+
+
+load_dotenv()
 
 router = Router()
 
 public_router = Router()
+public_router.message.filter(ChatTypeFilter(['private']))
 
 private_router = Router()
-private_router.message.filter(IsSubUser())
+private_router.message.filter(IsSubUser(), ChatTypeFilter(['private']))
 
 KEY_WORDS = {
     'получити доступ': '🔑 Получити доступ 🔑',
@@ -139,13 +146,17 @@ async def feedback(message: types.Message, state: FSMContext):
     await state.set_state(Feedback.question)
 
 @private_router.message(Feedback.question)
-async def feedback_first(message: types.Message, state: FSMContext):
+async def feedback_first(message: types.Message, state: FSMContext, bot: Bot):
     await state.update_data(question=message.text)
     data = await state.get_data()
     question = data.get("question")
 
     if question:
         await message.answer(f'<blockquote>{question}</blockquote>\n\nВаше повідомлення успішно надіслано адміністратору.', reply_markup=kb.user_menu)
+        await bot.send_message(
+            chat_id=os.getenv('CHAT_ID'),
+            text=f'Повідомлення від користувача {f"@{message.from_user.username}" if message.from_user.username else "-"} (<code>{message.from_user.id}</code>)\n\n<blockquote>{question}</blockquote>\n\n<code>/answer {message.from_user.id} </code>',
+        )
     else:
         await message.answer('Щось пішло не так 😢, спробуйте знову.', reply_markup=kb.user_menu)
 

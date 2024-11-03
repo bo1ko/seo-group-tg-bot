@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from pyrogram.errors import FloodWait
 from sqlalchemy import select, delete, update
 
 from app.database.engine import engine, session_maker
@@ -102,23 +103,33 @@ async def get_all_admins():
             return admins
 
 
-async def orm_add_channel(chat: str, phone_number: str, status: bool):
+async def orm_add_channel(chat: str, phone_number: str, status: bool, country: str, city: str, is_general: bool):
     async with session_maker() as session:
         async with session.begin():
             account = await orm_get_account(phone_number)
 
-            obj = Channel(chat=chat, status=status, account_id=account.id)
+            obj = Channel(chat=chat, status=status, account_id=account.id, country=country, city=city, is_general=is_general)
             session.add(obj)
             await session.commit()
             return obj
 
 
-async def orm_channel_processed(chat: str) -> bool:
+async def orm_channel_processed(chat: str):
     async with session_maker() as session:
         async with session.begin():
-            query = select(Channel).where(Channel.chat == chat)
+            query = (
+                select(Channel, Account.phone_number)
+                .join(Account)
+                .where(Channel.chat == chat)
+            )
             result = await session.execute(query)
-            return result.scalar() is not None
+            row = result.one_or_none()
+
+            if row:
+                channel, phone_number = row
+                return channel, phone_number
+            else:
+                return None, None
 
 
 async def orm_remove_channels():
@@ -188,6 +199,18 @@ async def orm_set_account_active(phone_number: str, status: bool):
                 return True
             return False
 
+async def orm_disable_active_accounts():
+    async with session_maker() as session:
+        async with session.begin():
+            query = select(Account)
+            result = await session.execute(query)
+            accounts = result.scalars().all()
+            
+            for account in accounts:
+                if account.is_active:
+                    account.is_active = False
+                    await session.commit()
+
 
 async def orm_check_active_type(phone_number: str):
     async with session_maker() as session:
@@ -212,6 +235,21 @@ async def orm_update_active_type(phone_number: str, active_type: str):
     except:
         return False
 
+
+async def orm_update_flood_wait(phone_number: str, flood_wait: datetime):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                query = (
+                    update(Account)
+                    .where(Account.phone_number == phone_number)
+                    .values(flood_wait=flood_wait)
+                )
+                await session.execute(query)
+                await session.commit()
+                return True
+    except:
+        return False
 
 ########## Subscribe ##########
 async def orm_get_subscribers():

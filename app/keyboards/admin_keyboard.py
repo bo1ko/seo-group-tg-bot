@@ -3,7 +3,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 
 admin_menu = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='Аккаунт'), KeyboardButton(text='Ключові слова')],
+    [KeyboardButton(text='Аккаунти')],
     [KeyboardButton(text='Добавити чати'), KeyboardButton(text='Перевірка чатів')],
     # [KeyboardButton(text='Користувачі')],
     [KeyboardButton(text='Налаштування підписок')],

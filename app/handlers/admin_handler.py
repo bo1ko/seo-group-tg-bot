@@ -42,6 +42,9 @@ class Auth(StatesGroup):
 
 class ExcelFile(StatesGroup):
     file_name = State()
+    country = State()
+    city = State()
+    is_general = State()
 
 
 class UserState(StatesGroup):
@@ -67,11 +70,10 @@ async def cmd_admin(message: types.Message, state: FSMContext):
 @router.message(F.text == "Сховати адмін меню")
 async def hide_admin_menu(message: types.Message):
     await message.answer("Адмін меню приховане", reply_markup=kb.hide_admin_menu)
-    print(auth_in_progress, add_chats_in_progress, check_chats_in_progress)
 
 
 # account
-@router.message(F.text == "Аккаунт")
+@router.message(F.text == "Аккаунти")
 async def account_list(message: types.Message):
     accounts = await rq.orm_get_accounts()
 
@@ -153,17 +155,6 @@ async def account_back(callback: types.CallbackQuery, state: FSMContext):
 # add account
 @router.message(F.text == "Добавити аккаунт")
 async def add_account(message: types.Message, state: FSMContext):
-    accounts = await rq.orm_get_accounts()
-
-    for account in accounts:
-        active_type = await rq.orm_check_active_type(account.phone_number)
-
-        if account.is_active and active_type != "check":
-            await message.answer(
-                "У вас є активні аккаунти. Для початку зупиніть активний процес."
-            )
-            return
-
     await message.answer(
         "Введіть API ID 👇\n(получити його можна тут: https://my.telegram.org/auth)"
     )
@@ -238,53 +229,24 @@ async def code_handler(message: types.Message, state: FSMContext):
 
 # add groups
 @router.message(F.text == "Добавити чати")
-async def add_groups(message: types.Message):
+async def add_groups(message: types.Message, state: FSMContext):
     accounts = await rq.orm_get_accounts()
 
     if not accounts:
         await message.answer("Аккаунтів немає", reply_markup=kb.admin_menu)
         return
 
-    btns = {
-        account.phone_number: f"add_chats_{account.phone_number}"
-        for account in accounts
-    }
-
     await message.answer("Меню «Добавити чати»", reply_markup=kb.back)
-    await message.answer(
-        "Виберіть аккаунт:", reply_markup=kb.get_callback_btns(btns=btns)
-    )
-
-
-# Callback / Groups / Choose number
-@router.callback_query(F.data.startswith("add_chats_"))
-async def groups_choose_number(callback: types.CallbackQuery, state: FSMContext):
-    phone_number = callback.data.split("_")[-1]
-    is_active = await rq.orm_is_account_active(phone_number)
-    active_type = await rq.orm_check_active_type(phone_number)
-
-    if is_active and active_type != "group":
-        await callback.message.edit_text("Вже є активний процес додавання в чати!")
-        return
-
-    await state.update_data(phone_number=phone_number)
-    await callback.message.edit_text("Запускаю додавання чатів...")
-    await start_add_groups(callback, state)
-
-
-# add groups / start
-@router.callback_query(F.date == "start_add_groups")
-async def start_add_groups(callback: types.CallbackQuery, state: FSMContext):
-    global add_chats_task
+    print(add_chats_task)
 
     if add_chats_task and not add_chats_task.done():
         btns = {"Зупинити додавання чатів": "stop_group_adding"}
-        await callback.message.edit_text(
+        await message.answer(
             "Додавання чатів вже працює", reply_markup=kb.get_callback_btns(btns=btns)
         )
         return
     else:
-        await callback.message.answer(
+        await message.answer(
             "Надішліть базу груп у форматі .xlsx", reply_markup=kb.back
         )
         await state.set_state(ExcelFile.file_name)
@@ -298,10 +260,7 @@ async def stop_group_adding(callback: types.CallbackQuery):
     if add_chats_task and not add_chats_task.done():
         add_chats_task.cancel()
         await callback.answer()
-        await callback.message.edit_text("Починаю зупиняти процес...")
-        await callback.message.answer(
-            "Додавання чатів зупинено", reply_markup=kb.admin_menu
-        )
+        await callback.message.edit_text("Починаю зупиняти процес...", kb.admin_menu)
     else:
         await callback.message.answer(
             "Немає активного процесу додавання чатів.", reply_markup=kb.admin_menu
@@ -316,7 +275,6 @@ async def add_groups_excel_file(message: types.Message, state: FSMContext, bot: 
     await state.update_data(file_name=message.document)
     data = await state.get_data()
     document = data.get("file_name")
-    phone_number = data.get("phone_number")
 
     if document is None:
         await message.reply(
@@ -333,17 +291,66 @@ async def add_groups_excel_file(message: types.Message, state: FSMContext, bot: 
         file_info = await bot.get_file(document.file_id)
         await bot.download_file(file_info.file_path, os.getenv("EXCEL"))
 
-        await message.reply(f"Файл отримано, запускаю процес!")
-
-        chat_joiner = ChatJoiner(phone_number, message)
-        add_chats_task = asyncio.create_task(chat_joiner.join_chats())
+        await message.reply(f"Файл отримано")
+        await message.answer("Введіть країну", reply_markup=kb.back)
+        await state.set_state(ExcelFile.country)
     else:
         await message.reply(
             "Будь ласка, надішліть Excel файл у форматі .xlsx",
             reply_markup=kb.admin_menu,
         )
+        await state.clear()
 
+
+@router.message(ExcelFile.country)
+async def add_groups_excel_file_first(message: types.Message, state: FSMContext):
+    await state.update_data(country=message.text)
+    await message.answer("Введіть місто", reply_markup=kb.back)
+    await state.set_state(ExcelFile.city)
+
+
+@router.message(ExcelFile.city)
+async def add_groups_excel_file_second(message: types.Message, state: FSMContext):
+    await state.update_data(city=message.text)
+    await message.answer("Тип загальний?\nВідповідь: Так / Ні", reply_markup=kb.back)
+    await state.set_state(ExcelFile.is_general)
+
+
+@router.message(ExcelFile.is_general)
+async def add_groups_excel_file_third(message: types.Message, state: FSMContext):
+    global add_chats_task
+
+    await state.update_data(is_general=message.text)
+    data = await state.get_data()
+
+    country = data.get("country")
+    if country:
+        country = country.lower()
+    
+    city = data.get("city")
+    if city:
+        city = city.lower()
+    
+    is_general = data.get("is_general")
+
+    if is_general.lower() == "так":
+        is_general = True
+    elif is_general.lower() == "ні":
+        is_general = False
+    else:
+        await message.answer(
+            "Ви ввели невірну відповідь. Процес завершено неуспішно.",
+            reply_markup=kb.admin_menu,
+        )
+        await state.clear()
+        return
+
+    await message.answer("Дані збережено, запускаю процес!", reply_markup=kb.admin_menu)
     await state.clear()
+
+    chat_joiner = ChatJoiner(message)
+    # await chat_joiner.join_chats(country, city, is_general)
+    add_chats_task = asyncio.create_task(chat_joiner.join_chats(country, city, is_general))
 
 
 # Chat checker
@@ -377,17 +384,6 @@ async def start_check_chats(message: types.Message):
     if check_chats_task and not check_chats_task.done():
         await message.answer("Перевірка чатів вже працює", reply_markup=kb.admin_menu)
     else:
-        accounts = await rq.orm_get_accounts()
-
-        for account in accounts:
-            active_type = await rq.orm_check_active_type(account.phone_number)
-
-            if account.is_active and active_type != "check":
-                await message.answer(
-                    "У вас є активні аккаунти. Для початку зупиніть активний процес."
-                )
-                return
-
         await message.answer("Перевірка чатів запущена", reply_markup=kb.admin_menu)
         check_message = CheckMessage(message)
         check_chats_task = asyncio.create_task(check_message.check_chat())
@@ -405,6 +401,7 @@ async def stop_chats_adding(message: types.Message):
         await message.answer(
             "Немає активного процесу перевірки чатів.", reply_markup=kb.admin_menu
         )
+
 
 # Users
 @router.message(F.text == "Користувачі")
@@ -478,6 +475,7 @@ class Subscriber(StatesGroup):
     add_tg_id = State()
     remove_tg_id = State()
 
+
 KEY_WORDS = {
     "список підписників": "Список підписників 📃",
     "історія підписок": "Історія підписок 📖",
@@ -487,11 +485,11 @@ KEY_WORDS = {
 }
 
 SUBSCRIBE_KB = kb.get_keyboard(
-    KEY_WORDS['список підписників'],
-    KEY_WORDS['історія підписок'],
-    KEY_WORDS['видати підписку'],
-    KEY_WORDS['видалити підписку'],
-    KEY_WORDS['назад'],
+    KEY_WORDS["список підписників"],
+    KEY_WORDS["історія підписок"],
+    KEY_WORDS["видати підписку"],
+    KEY_WORDS["видалити підписку"],
+    KEY_WORDS["назад"],
     placeholder="Виберіть пункт меню...",
     sizes=(2,),
 )
@@ -505,6 +503,7 @@ PERIOD_KB = kb.get_callback_btns(
     }
 )
 
+
 @router.message(
     or_f(Command("user_subscribe"), "налаштування підписок" == F.text.lower())
 )
@@ -514,7 +513,7 @@ async def cmd_user_subscribe(message: types.Message):
     )
 
 
-@router.message(F.text == KEY_WORDS['список підписників'])
+@router.message(F.text == KEY_WORDS["список підписників"])
 async def subscribe_list(message: types.Message):
     orm_data = await rq.orm_get_subscribers()
 
@@ -525,12 +524,15 @@ async def subscribe_list(message: types.Message):
             if item.is_subscribed:
                 start_date = item.start_subscription_date.strftime("%Y-%m-%d")
                 end_date = item.end_subscription_date.strftime("%Y-%m-%d")
-                
-                await message.answer(f"<code>{item.user_id}</code> | Активна від {start_date} до {end_date}")
+
+                await message.answer(
+                    f"<code>{item.user_id}</code> | Активна від {start_date} до {end_date}"
+                )
     else:
         await message.answer("Немає підписників")
 
-@router.message(F.text == KEY_WORDS['історія підписок'])
+
+@router.message(F.text == KEY_WORDS["історія підписок"])
 async def subscribe_history(message: types.Message):
     orm_data = await rq.orm_get_subscribers()
 
@@ -542,14 +544,18 @@ async def subscribe_history(message: types.Message):
             end_date = item.end_subscription_date.strftime("%Y-%m-%d")
 
             if item.is_subscribed:
-                await message.answer(f"<code>{item.user_id}</code> | {'Активна ✅'} | Активна від {start_date} до {end_date}")
+                await message.answer(
+                    f"<code>{item.user_id}</code> | {'Активна ✅'} | Активна від {start_date} до {end_date}"
+                )
             else:
-                await message.answer(f"<code>{item.user_id}</code> | {'Неактивна ❌'} | Була активна від {start_date} до {end_date}")
+                await message.answer(
+                    f"<code>{item.user_id}</code> | {'Неактивна ❌'} | Була активна від {start_date} до {end_date}"
+                )
     else:
         await message.answer("Немає підписок")
 
 
-@router.message(F.text == KEY_WORDS['видати підписку'])
+@router.message(F.text == KEY_WORDS["видати підписку"])
 async def add_subscriber(message: types.Message, state: FSMContext):
     await message.answer("Введіть ID підписника: ", reply_markup=kb.back)
     await state.set_state(Subscriber.add_tg_id)
@@ -593,7 +599,6 @@ async def subscription_period(
     start_date = datetime.now()
     end_date = start_date + timedelta(days=period)
 
-
     if not subscriber_result:
         result = await rq.orm_add_subscriber(tg_id, start_date, end_date)
     else:
@@ -622,10 +627,14 @@ async def subscription_period(
 
     await state.clear()
 
-@router.message(F.text == KEY_WORDS['видалити підписку'])
+
+@router.message(F.text == KEY_WORDS["видалити підписку"])
 async def remove_subscriber(message: types.Message, state: FSMContext):
-    await message.answer('Введіть ID користувача, якому хочете видалити підписку', reply_markup=kb.back)
+    await message.answer(
+        "Введіть ID користувача, якому хочете видалити підписку", reply_markup=kb.back
+    )
     await state.set_state(Subscriber.remove_tg_id)
+
 
 @router.message(Subscriber.remove_tg_id)
 async def remove_subscriber_first(message: types.Message, state: FSMContext):
@@ -641,7 +650,10 @@ async def remove_subscriber_first(message: types.Message, state: FSMContext):
             result = await rq.orm_disable_active_subscribers(tg_id)
 
             if result:
-                await message.answer(f"Підписка у користувача {f'@{user_data.name} ' if user_data.name else ' '}(<code>{tg_id}</code>) успішно видалена.", reply_markup=SUBSCRIBE_KB)
+                await message.answer(
+                    f"Підписка у користувача {f'@{user_data.name} ' if user_data.name else ' '}(<code>{tg_id}</code>) успішно видалена.",
+                    reply_markup=SUBSCRIBE_KB,
+                )
             else:
                 await message.answer(f"Щось пішло не так 😢", reply_markup=SUBSCRIBE_KB)
         else:
@@ -650,4 +662,3 @@ async def remove_subscriber_first(message: types.Message, state: FSMContext):
         await message.answer("Ви ввели некоректний ID", reply_markup=SUBSCRIBE_KB)
 
     await state.clear()
-
