@@ -19,23 +19,25 @@ load_dotenv()
 router = Router()
 
 public_router = Router()
-public_router.message.filter(ChatTypeFilter(['private']))
+public_router.message.filter(ChatTypeFilter(["private"]))
 
 private_router = Router()
-private_router.message.filter(IsSubUser(), ChatTypeFilter(['private']))
+private_router.message.filter(IsSubUser(), ChatTypeFilter(["private"]))
 
 KEY_WORDS = {
-    'получити доступ': '🔑 Получити доступ 🔑',
+    "получити доступ": "🔑 Получити доступ 🔑",
 }
+
 
 class Feedback(StatesGroup):
     question = State()
+
 
 #  /start
 @public_router.message(CommandStart())
 async def cmd_start(message: types.Message):
     if await IsSubUser().__call__(message):
-        await message.answer('Ви перейшли в головне меню', reply_markup=kb.user_menu)
+        await message.answer("Ви перейшли в головне меню", reply_markup=kb.user_menu)
         return
 
     user = await rq.orm_get_user(str(message.from_user.id))
@@ -44,27 +46,59 @@ async def cmd_start(message: types.Message):
         await rq.orm_add_user(str(message.from_user.id), message.from_user.username)
 
     subscribe_kb = kb.get_keyboard(
-        KEY_WORDS['получити доступ'],
+        KEY_WORDS["получити доступ"],
         placeholder='Щоб отримати доступ, нажміть "Отримати доступ"',
     )
 
     await message.answer(
-        'Привіт! Я — Бізнес Радар Європа. Моя місія — допомагати українським підприємцям швидко знаходити замовлення, роботу та клієнтів у Європі. Шукаєте нові можливості чи партнерів? Я підключу вас до великої української аудиторії в Telegram, яка також перебуває в ЄС. Я знайду найкращі пропозиції для вас. Зі мною ваш бізнес завжди на зв’язку з клієнтами!',
-        reply_markup=subscribe_kb)
+        "Привіт! Я — Бізнес Радар Європа. Моя місія — допомагати українським підприємцям швидко знаходити замовлення, роботу та клієнтів у Європі. Шукаєте нові можливості чи партнерів? Я підключу вас до великої української аудиторії в Telegram, яка також перебуває в ЄС. Я знайду найкращі пропозиції для вас. Зі мною ваш бізнес завжди на зв’язку з клієнтами!",
+        reply_markup=subscribe_kb,
+    )
 
 
 # subscribe
-@public_router.message(or_f(Command('subscribe'), KEY_WORDS['получити доступ'] == F.text))
+@public_router.message(
+    or_f(Command("subscribe"), KEY_WORDS["получити доступ"] == F.text)
+)
 async def cmd_subcribe(message: types.Message):
     await message.answer(
-        f'Твій телеграм ID: <code>{message.from_user.id}</code>\n\nЩоб отримати доступ, напиши сюди\n 👉 @magisteroffski')
+        f"Твій телеграм ID: <code>{message.from_user.id}</code>\n\nЩоб отримати доступ, напиши сюди\n 👉 @magisteroffski"
+    )
 
 
 ### MAIN MENU
-@private_router.message(F.text == 'Головне меню')
+@private_router.message(F.text == "Головне меню")
 async def main_menu(message: types.Message, state: FSMContext):
     await message.answer('Ви перейшли в "Головне меню"', reply_markup=kb.user_menu)
     await state.clear()
+
+
+### Sub stats
+@public_router.message(
+    or_f(Command("sub_info"), "Інформація про підписку 🔥" == F.text)
+)
+async def cmd_subcribe(message: types.Message):
+    user_id = str(message.from_user.id)
+    user = await rq.orm_get_user(user_id)
+    sub_info = await rq.orm_get_subscriber(user_id)
+    text = ""
+
+    if sub_info and user:
+        if sub_info.is_subscribed:
+            text += "🔥 Підписка: Активна ✅\n\n"
+        else:
+            text += "😢 Підписка: Неактивна ❌\n\n"
+
+        text += f"🔑 Ключові слова: {', '.join(user.key_list)}\n"
+        text += f"📕 Підключені бази: {', '.join(user.db_list)}\n\n"
+        text += f"📅 Підписка активна від {sub_info.start_subscription_date.date()} до {sub_info.end_subscription_date.date()}"
+
+        await message.answer(text, reply_markup=kb.user_menu)
+    else:
+        await message.answer(
+            "Щось пішло не так... Спробуйте знову.", reply_markup=kb.user_menu
+        )
+
 
 ### KEYWORDS
 class KeywordsState(StatesGroup):
@@ -73,7 +107,7 @@ class KeywordsState(StatesGroup):
 
 
 # Add keywords
-@private_router.message(F.text == "Ключові слова")
+@private_router.message(F.text == "Ключові слова 🔑")
 async def keywords_menu(message: types.Message):
     await message.answer('Меню "Ключові слова"', reply_markup=kb.keywords)
 
@@ -84,16 +118,19 @@ async def keyword_list(message: types.Message):
     orm_keywords = await rq.orm_get_keywords(str(message.from_user.id))
 
     if orm_keywords:
-        keywords_str = ', '.join(orm_keywords)
+        keywords_str = ", ".join(orm_keywords)
         await message.answer(f"Список ключових слів\n\n{keywords_str}")
     else:
-        await message.answer('Немає ключових слів')
+        await message.answer("Немає ключових слів")
 
 
 # Add keywords
 @private_router.message(F.text == "Додати ключові слова")
 async def add_keywords(message: types.Message, state: FSMContext):
-    await message.answer("Введіть ключові слова через кому\nПриклад: Кіт, собака, бобр", reply_markup=kb.main)
+    await message.answer(
+        "Введіть ключові слова через кому\nПриклад: Кіт, собака, бобр",
+        reply_markup=kb.main,
+    )
     await state.set_state(KeywordsState.add_keywords)
 
 
@@ -121,7 +158,7 @@ async def add_keywords_first_step(message: types.Message, state: FSMContext):
 async def remove_keywords(message: types.Message, state: FSMContext):
     await message.answer(
         "Щоб видалити ключові слова, введіть їх через кому\nПриклад: Кіт, собака, бобр",
-        reply_markup=kb.main
+        reply_markup=kb.main,
     )
     await state.set_state(KeywordsState.remove_keywords)
 
@@ -136,14 +173,18 @@ async def remove_keywords_first_step(message: types.Message, state: FSMContext):
     if result:
         await message.answer("Ключові слова успішно видалені", reply_markup=kb.keywords)
     else:
-        await message.answer("Щось пішло не так 😢, спробуйте знову.", reply_markup=kb.keywords)
+        await message.answer(
+            "Щось пішло не так 😢, спробуйте знову.", reply_markup=kb.keywords
+        )
     await state.clear()
 
+
 ### Feedback
-@private_router.message(F.text == "Зв'язок з адміністратором")
+@private_router.message(F.text == "Зв'язок з адміністратором 📱")
 async def feedback(message: types.Message, state: FSMContext):
-    await message.answer('Напишіть сюди своє запитання 👇', reply_markup=kb.main)
+    await message.answer("Напишіть сюди своє запитання 👇", reply_markup=kb.main)
     await state.set_state(Feedback.question)
+
 
 @private_router.message(Feedback.question)
 async def feedback_first(message: types.Message, state: FSMContext, bot: Bot):
@@ -152,14 +193,21 @@ async def feedback_first(message: types.Message, state: FSMContext, bot: Bot):
     question = data.get("question")
 
     if question:
-        await message.answer(f'<blockquote>{question}</blockquote>\n\nВаше повідомлення успішно надіслано адміністратору.', reply_markup=kb.user_menu)
+        await message.answer(
+            f"<blockquote>{question}</blockquote>\n\nВаше повідомлення успішно надіслано адміністратору.",
+            reply_markup=kb.user_menu,
+        )
         await bot.send_message(
-            chat_id=os.getenv('CHAT_ID'),
+            chat_id=os.getenv("CHAT_ID"),
             text=f'Повідомлення від користувача {f"@{message.from_user.username}" if message.from_user.username else "-"} (<code>{message.from_user.id}</code>)\n\n<blockquote>{question}</blockquote>\n\n<code>/answer {message.from_user.id} </code>',
         )
     else:
-        await message.answer('Щось пішло не так 😢, спробуйте знову.', reply_markup=kb.user_menu)
+        await message.answer(
+            "Щось пішло не так 😢, спробуйте знову.", reply_markup=kb.user_menu
+        )
 
     await state.clear()
+
+
 router.include_router(public_router)
 router.include_router(private_router)

@@ -5,8 +5,9 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 main_placeholder = 'Виберіть пункт меню...'
 
 user_menu = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='Ключові слова')],
-    [KeyboardButton(text="Зв'язок з адміністратором")]
+    [KeyboardButton(text='Ключові слова 🔑')],
+    [KeyboardButton(text='Інформація про підписку 🔥')],
+    [KeyboardButton(text="Зв'язок з адміністратором 📱")],
 ], resize_keyboard=True, input_field_placeholder=main_placeholder)
 
 keywords = ReplyKeyboardMarkup(keyboard=[

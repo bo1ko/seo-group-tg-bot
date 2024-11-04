@@ -2,6 +2,7 @@ import asyncio
 import os
 
 from datetime import datetime, timedelta
+import sys
 
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command, or_f
@@ -326,11 +327,11 @@ async def add_groups_excel_file_third(message: types.Message, state: FSMContext)
     country = data.get("country")
     if country:
         country = country.lower()
-    
+
     city = data.get("city")
     if city:
         city = city.lower()
-    
+
     is_general = data.get("is_general")
 
     if is_general.lower() == "так":
@@ -350,7 +351,9 @@ async def add_groups_excel_file_third(message: types.Message, state: FSMContext)
 
     chat_joiner = ChatJoiner(message)
     # await chat_joiner.join_chats(country, city, is_general)
-    add_chats_task = asyncio.create_task(chat_joiner.join_chats(country, city, is_general))
+    add_chats_task = asyncio.create_task(
+        chat_joiner.join_chats(country, city, is_general)
+    )
 
 
 # Chat checker
@@ -662,3 +665,187 @@ async def remove_subscriber_first(message: types.Message, state: FSMContext):
         await message.answer("Ви ввели некоректний ID", reply_markup=SUBSCRIBE_KB)
 
     await state.clear()
+
+
+# --------------------------- ACCESS ---------------------------
+@router.message(F.text.lower() == "налаштування доступів")
+async def access_manager(message: types.Message):
+    users = await rq.orm_get_users()
+    btns = {}
+
+    for user in users:
+        btns[user.name] = f"access_user_{user.tg_id}"
+
+    await message.answer('Ви перейшли в "Налаштування доступів"', reply_markup=kb.back)
+    await message.answer(
+        "Виберіть користувача 👇", reply_markup=kb.get_callback_btns(btns=btns)
+    )
+
+
+@router.callback_query(F.data == "back_to_access_manager")
+async def access_manager_callback(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    users = await rq.orm_get_users()
+    btns = {}
+
+    for user in users:
+        btns[user.name] = f"access_user_{user.tg_id}"
+
+    # await callback.message.answer('', reply_markup=kb.back)
+    await callback.message.edit_text(
+        "Виберіть користувача 👇", reply_markup=kb.get_callback_btns(btns=btns)
+    )
+
+
+@router.callback_query(F.data.startswith("access_user_"))
+async def access_user_manage(callback: types.CallbackQuery, state: FSMContext):
+    tg_id = callback.data.split("_")[-1]
+    user = await rq.orm_get_user(tg_id)
+    user_db_access = ""
+
+    await state.set_data({"tg_id": user.tg_id})
+
+    btns = {
+        "Видати доступи": "access_get_list",
+        "Забрати доступи": "access_get_user_list",
+        "Назад": "back_to_access_manager",
+    }
+
+    if user.db_list:
+        for db in user.db_list:
+            user_db_access += f" - {db}\n"
+
+    answer_str = f"{f'@{user.name}' if user.name else '-'} (<code>{tg_id}</code>)\nНаявні доступи:\n{user_db_access}\nВиберіть дію 👇"
+
+    await callback.message.edit_text(
+        answer_str, reply_markup=kb.get_callback_btns(btns=btns)
+    )
+
+
+@router.callback_query(F.data.startswith("access_get_list"))
+async def get_access(callback: types.CallbackQuery):
+    channels_data = await rq.get_unique_channels_data()
+    is_general = ""
+    btns = {}
+
+    for count, channel in enumerate(channels_data):
+        if channel[2]:
+            is_general = "Так"
+        else:
+            is_general = "Ні"
+
+        btns[f"Країна: {channel[0]}, місто: {channel[1]}, загальний: {is_general}"] = (
+            f"access_get_db_{count}"
+        )
+
+    btns["Назад"] = "back_to_access_manager"
+
+    await callback.answer()
+
+    if channels_data:
+        await callback.message.edit_text(
+            f"Виберіть базу 📖",
+            reply_markup=kb.get_callback_btns(btns=btns, sizes=(1,)),
+        )
+
+
+@router.callback_query(F.data.startswith("access_get_db_"))
+async def get_access_to_db(callback: types.CallbackQuery, state: FSMContext):
+    db_id = callback.data.split("_")[-1]
+    data = await state.get_data()
+
+    channels_data = await rq.get_unique_channels_data()
+
+    for count, channel in enumerate(channels_data):
+        if count == int(db_id):
+            result = await rq.orm_update_user_db(
+                data["tg_id"], f"{channel[0]} {channel[1]} {channel[2]}"
+            )
+
+            btns = {"Назад": "back_to_access_manager"}
+            if result:
+                await callback.message.edit_text(
+                    "Доступ виданий", reply_markup=kb.get_callback_btns(btns=btns)
+                )
+                await callback.bot.send_message(
+                    chat_id=int(data["tg_id"]),
+                    text=f"Вам виданий доступ до бази даних: {channel[0]} / {channel[1]}",
+                )
+            else:
+                await callback.message.edit_text(
+                    "Доступ до цієї бд вже виданий, або щось пішло не так... Спробуйте знову",
+                    reply_markup=kb.get_callback_btns(btns=btns),
+                )
+
+
+@router.callback_query(F.data.startswith("access_get_user_list"))
+async def remove_access(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    tg_id = data.get("tg_id")
+
+    if tg_id:
+        user = await rq.orm_get_user(tg_id)
+
+        if user:
+            await state.update_data({"db_list": user.db_list})
+            btns = {}
+
+            for count, db in enumerate(user.db_list):
+                btns[db] = f"access_remove_{count}"
+
+            btns["Назад"] = "back_to_access_manager"
+
+            await callback.message.edit_text(
+                f"Виберіть БД", reply_markup=kb.get_callback_btns(btns=btns)
+            )
+    else:
+        btns = {"Назад": "back_to_access_manager"}
+        await callback.message.answer(
+            "Щось пішло не так... Спробуйте знову",
+            reply_markup=kb.get_callback_btns(btns=btns),
+        )
+
+
+@router.callback_query(F.data.startswith("access_remove_"))
+async def remove_user_db(callback: types.CallbackQuery, state: FSMContext):
+    db_id = int(callback.data.split("_")[-1])
+    data = await state.get_data()
+    tg_id = data.get("tg_id")
+    db_list = data.get("db_list")
+    btns = {"Назад": "back_to_access_manager"}
+    
+    if db_list:
+        result = await rq.orm_remove_user_db(tg_id, db_list[db_id])
+
+        if result:
+            await callback.message.edit_text(
+                "Доступ видалений", reply_markup=kb.get_callback_btns(btns=btns)
+            )
+        else:
+            await callback.message.edit_text(
+                "Щось пішло не так... Спробуйте знову",
+                reply_markup=kb.get_callback_btns(btns=btns),
+            )
+    else:
+        await callback.message.answer(
+            "Щось пішло не так... Спробуйте знову",
+            reply_markup=kb.get_callback_btns(btns=btns),
+        )
+
+
+@router.message(F.text.lower() == 'інформація про користувачів')
+async def users_info(message: types.Message):
+    subs_info = await rq.orm_get_subscribers()
+
+    for sub in subs_info:
+        user = await rq.orm_get_user(sub.user_id)
+        text = ''
+        
+        if sub.is_subscribed:
+            text += f"{f'@{user.name if user.name else 'Немає юзернейму'} (<code>{user.tg_id}</code>)'}\n\n"
+            text += f"🔑 Ключові слова: {', '.join(user.key_list)}\n"
+            text += f"📕 Підключені бази: {', '.join(user.db_list)}\n"
+            text += f"✉ Кількість повідомлень: {user.message_count}\n\n"
+            text += f"📅 Підписка активна від {sub.start_subscription_date.date()} до {sub.end_subscription_date.date()}"
+
+        await message.answer(text, reply_markup=kb.admin_menu)

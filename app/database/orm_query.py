@@ -1,7 +1,6 @@
 from datetime import datetime
 
-from pyrogram.errors import FloodWait
-from sqlalchemy import select, delete, update
+from sqlalchemy import select, delete, update, distinct
 
 from app.database.engine import engine, session_maker
 from app.database.models import Base
@@ -102,6 +101,19 @@ async def get_all_admins():
             admins = result.scalars().all()
             return admins
 
+
+async def orm_get_channel_data(chat_name: str):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                query = select(Channel).where(Channel.chat == chat_name)
+                result = await session.execute(query)
+                channel = result.scalar()
+                
+                return f'{channel.country} {channel.city} {channel.is_general}'
+    except Exception as e:
+        print(e)
+        return False
 
 async def orm_add_channel(chat: str, phone_number: str, status: bool, country: str, city: str, is_general: bool):
     async with session_maker() as session:
@@ -262,11 +274,15 @@ async def orm_get_subscribers():
 
 
 async def orm_get_subscriber(tg_id: str):
-    async with session_maker() as session:
-        async with session.begin():
-            query = select(Subscription).where(Subscription.user_id == tg_id)
-            result = await session.execute(query)
-            return result.scalar()
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                query = select(Subscription).where(Subscription.user_id == tg_id)
+                result = await session.execute(query)
+                return result.scalar()
+    except Exception as e:
+        print(e)
+        return False
 
 
 async def orm_add_subscriber(tg_id: str, start_date: datetime, end_date: datetime):
@@ -405,3 +421,108 @@ async def orm_remove_keywords(tg_id: str, keywords_to_remove: list):
         return False
 
 
+async def get_unique_channels_data():
+    try:
+        async with session_maker() as session: 
+            result = await session.execute(
+                select(
+                    Channel.country, 
+                    Channel.city, 
+                    Channel.is_general
+                ).distinct()
+            )
+            return result.fetchall()
+    except Exception as e:
+        print(e)
+        return False
+
+async def orm_update_user_db(tg_id: str, new_db: str):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                # Retrieve the current db_list for the user
+                result = await session.execute(
+                    select(User).where(User.tg_id == tg_id)
+                )
+                user = result.scalar_one_or_none()
+
+                if user:
+                    # Append the new element to the db_list
+                    if user.db_list is None:
+                        user.db_list = []  # Initialize if it's None
+                    elif new_db not in user.db_list:
+                        user.db_list.append(new_db)
+
+                        # Update the user in the database
+                        await session.execute(
+                            update(User)
+                            .where(User.tg_id == tg_id)
+                            .values(db_list=user.db_list)
+                        )
+                        await session.commit()
+                        return True
+                    return False
+                else:
+                    return False  # User not found
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return False
+
+async def orm_remove_user_db(tg_id: str, db_to_remove: str):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                # Retrieve the current db_list for the user
+                result = await session.execute(
+                    select(User).where(User.tg_id == tg_id)
+                )
+                user = result.scalar_one_or_none()
+
+                if user:
+                    # Remove the element from the db_list
+                    print('!!!!!!!!!!!!', db_to_remove, user.db_list)
+                    if user.db_list is not None and db_to_remove in user.db_list:
+                        user.db_list.remove(db_to_remove)
+
+                        # Update the user in the database
+                        await session.execute(
+                            update(User)
+                            .where(User.tg_id == tg_id)
+                            .values(db_list=user.db_list)
+                        )
+                        await session.commit()
+                        return True
+                    return False  # db_to_remove was not in the list
+                else:
+                    return False  # User not found
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return False
+
+async def orm_increment_message_count(tg_id: str):
+    try:
+        async with session_maker() as session:
+            async with session.begin():
+                # Retrieve the current message_count for the user
+                result = await session.execute(
+                    select(User).where(User.tg_id == tg_id)
+                )
+                user = result.scalar_one_or_none()
+
+                if user:
+                    # Increment message_count by 1, initialize if None
+                    user.message_count = (user.message_count or 0) + 1
+
+                    # Update the user in the database
+                    await session.execute(
+                        update(User)
+                        .where(User.tg_id == tg_id)
+                        .values(message_count=user.message_count)
+                    )
+                    await session.commit()
+                    return True
+                else:
+                    return False  # User not found
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return False

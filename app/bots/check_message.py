@@ -1,6 +1,6 @@
 import asyncio
 import re
-import sys
+import traceback
 
 from aiogram.types import Message
 from dotenv import load_dotenv
@@ -11,6 +11,8 @@ from app.database.orm_query import (
     orm_get_accounts,
     orm_set_account_active,
     orm_get_subscribers,
+    orm_increment_message_count,
+    orm_get_channel_data
 )
 
 load_dotenv()
@@ -31,8 +33,9 @@ class CheckMessage:
             await client.stop()
             self.is_client_started = False
 
-    async def contains_keywords(self, text: str, users_key_words: dict, info_message: str) -> bool:
+    async def contains_keywords(self, text: str, users_key_words: dict, users_db: dict, info_message: str, chat_url: str) -> bool:
         text = text.lower()
+        chat_name = chat_url.split("/")[-1]
 
         for item, kw_list in users_key_words.items():
             has_kw = False
@@ -45,7 +48,15 @@ class CheckMessage:
                     has_kw = True
             
             if has_kw:
-                await self.message.bot.send_message(item, info_message)
+                user_db = users_db.get(str(item))
+                channel_data = await orm_get_channel_data(chat_name)
+                
+                print(channel_data, user_db)
+                
+                if channel_data:
+                    if channel_data in user_db:
+                        await orm_increment_message_count(str(item))
+                        await self.message.bot.send_message(chat_id=item, text=f'{info_message}')
 
         return False
 
@@ -59,6 +70,7 @@ class CheckMessage:
                 sub_ids = []
                 
                 users_key_words = {}
+                users_db = {}
                 admins = []
                 
                 for sub in subs:
@@ -68,9 +80,12 @@ class CheckMessage:
                 for user in users:
                     if user.tg_id in sub_ids:
                         users_key_words[int(user.tg_id)] = user.key_list
-                        
+                    
                     if user.is_admin:
                         admins.append(int(user.tg_id))
+                    
+                    if user.db_list:
+                        users_db[user.tg_id] = user.db_list
 
                 accounts = await orm_get_accounts()
 
@@ -103,12 +118,12 @@ class CheckMessage:
                                                 f"Чат: {chat_message.chat.title}\n"
                                                 f"Посилання на чат: {chat_link}\n"
                                                 f"Посилання на повідомлення: {message_link}\n"
-                                                f"Автор: {chat_message.from_user.username or chat_message.from_user.first_name}\n"
+                                                f"Автор: {f'@{chat_message.from_user.username}' if chat_message.from_user else 'Невідомий'}\n"
                                                 f"Текст: {chat_message.text}"
                                             )
-
+                            
                                             await self.contains_keywords(
-                                                chat_message.text, users_key_words, info_message
+                                                chat_message.text, users_key_words, users_db, info_message, chat_link
                                             )
                                     await client.read_chat_history(dialog.chat.id)
                             await self.stop(client)
@@ -117,11 +132,13 @@ class CheckMessage:
                             if last_exception != e:
                                 for admin in admins:
                                     last_exception = e
-                                    await self.message.answer(admin, f"{e}")
+                                    print(traceback.format_exc())
+                                    await self.message.bot.send_message(chat_id=admin, text=f"{last_exception}")
                         finally:
                             await orm_set_account_active(account.phone_number, False)
                             await self.stop(client)
 
-                        await asyncio.sleep(60)
+                        await asyncio.sleep(5)
         except Exception as e:
-            self.message.bot.send_message(chat_id=1029023222, text=f'ПРОЦЕС ПРОВІРКИ ЧАТІВ ERROR\n{e}')
+            print(traceback.format_exc())
+            await self.message.bot.send_message(chat_id=1029023222, text=f'ПРОЦЕС ПРОВІРКИ ЧАТІВ ERROR\n{e}')
