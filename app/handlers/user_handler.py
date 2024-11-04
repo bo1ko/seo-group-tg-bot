@@ -88,9 +88,9 @@ async def cmd_subcribe(message: types.Message):
             text += "🔥 Підписка: Активна ✅\n\n"
         else:
             text += "😢 Підписка: Неактивна ❌\n\n"
-
-        text += f"🔑 Ключові слова: {', '.join(user.key_list)}\n"
-        text += f"📕 Підключені бази: {', '.join(user.db_list)}\n\n"
+        
+        text += f"🔑 Ключові слова: {', '.join(user.key_list) if user.key_list else ''}\n"
+        text += f"📕 Підключені бази: {', '.join(user.db_list) if user.db_list else ''}\n\n"
         text += f"📅 Підписка активна від {sub_info.start_subscription_date.date()} до {sub_info.end_subscription_date.date()}"
 
         await message.answer(text, reply_markup=kb.user_menu)

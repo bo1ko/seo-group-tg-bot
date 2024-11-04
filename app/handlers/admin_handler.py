@@ -843,8 +843,8 @@ async def users_info(message: types.Message):
         
         if sub.is_subscribed:
             text += f"@{user.name if user.name else 'Немає юзернейму'} (<code>{user.tg_id}</code>)\n\n"
-            text += f"🔑 Ключові слова: {', '.join(user.key_list)}\n"
-            text += f"📕 Підключені бази: {', '.join(user.db_list)}\n"
+            text += f"🔑 Ключові слова: {', '.join(user.key_list) if user.key_list else ''}\n"
+            text += f"📕 Підключені бази: {', '.join(user.db_list) if user.db_list else ''}\n"
             text += f"✉ Кількість повідомлень: {user.message_count}\n\n"
             text += f"📅 Підписка активна від {sub.start_subscription_date.date()} до {sub.end_subscription_date.date()}"
 
