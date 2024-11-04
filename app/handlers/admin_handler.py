@@ -842,7 +842,7 @@ async def users_info(message: types.Message):
         text = ''
         
         if sub.is_subscribed:
-            text += f"{f'@{user.name if user.name else 'Немає юзернейму'} (<code>{user.tg_id}</code>)'}\n\n"
+            text += f"@{user.name if user.name else 'Немає юзернейму'} (<code>{user.tg_id}</code>)\n\n"
             text += f"🔑 Ключові слова: {', '.join(user.key_list)}\n"
             text += f"📕 Підключені бази: {', '.join(user.db_list)}\n"
             text += f"✉ Кількість повідомлень: {user.message_count}\n\n"
